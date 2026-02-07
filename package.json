@@ -1,0 +1,11 @@
+{
+  "name": "trustpay",
+  "private": true,
+  "workspaces": ["services/*", "frontend"],
+  "scripts": {
+    "dev:auth": "npm --workspace services/auth-service run dev",
+    "dev:payment": "npm --workspace services/payment-service run dev",
+    "dev:verify": "npm --workspace services/verify-service run dev",
+    "dev:frontend": "npm --workspace frontend run dev"
+  }
+}
