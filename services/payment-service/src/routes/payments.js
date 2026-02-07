@@ -33,11 +33,11 @@ router.post("/invoices", requireAuth, (req, res) => {
   }
 });
 
-// List my invoices
+// List invoices (latest first)
 router.get("/invoices", requireAuth, (req, res) => {
   const rows = db
-    .prepare("SELECT * FROM invoices WHERE customer_id = ? ORDER BY id DESC")
-    .all(req.user.id);
+    .prepare("SELECT * FROM invoices ORDER BY id DESC LIMIT 50")
+    .all();
   res.json({ invoices: rows });
 });
 

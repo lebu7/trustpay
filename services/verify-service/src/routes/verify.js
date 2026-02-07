@@ -1,37 +1,37 @@
 import express from "express";
-import { getContract } from "../contract.js";
+import { getContract, getWriteContract } from "../contract.js";
 
 const router = express.Router();
 
-router.get("/health", (req, res) =>
-  res.json({ status: "OK", service: "verify-service" }),
-);
+router.get("/health", (req, res) => {
+  res.json({ status: "OK", service: "verify-service" });
+});
 
 router.get("/:refId", async (req, res) => {
-  try {
-    const refId = req.params.refId;
-    const contract = getContract();
+  const { refId } = req.params;
+  const contract = getContract();
 
-    const exists = await contract.paymentExists(refId);
-    if (!exists)
-      return res
-        .status(404)
-        .json({ verified: false, error: "Not found on chain" });
+  const proof = await contract.getPayment(refId);
+  const payer = proof[0];
+  const amount = proof[1].toString();
+  const timestamp = proof[2].toString();
+  const txHash = proof[3];
 
-    const [storedRefId, payer, amount, timestamp, txHash] =
-      await contract.getPayment(refId);
+  const verified = payer !== "0x0000000000000000000000000000000000000000";
+  return res.json({ verified, refId, payer, amount, timestamp, txHash });
+});
 
-    res.json({
-      verified: true,
-      refId: storedRefId,
-      payer,
-      amount: amount.toString(),
-      timestamp: timestamp.toString(),
-      txHash,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// ✅ Local demo endpoint: record proof on-chain
+router.post("/record", async (req, res) => {
+  const { refId, amount, txHash = "0xTEMP" } = req.body;
+  if (!refId || amount == null)
+    return res.status(400).json({ error: "refId and amount required" });
+
+  const contract = getWriteContract();
+  const tx = await contract.recordPayment(refId, String(amount), txHash);
+  const receipt = await tx.wait();
+
+  res.json({ ok: true, refId, txHash, txReceiptHash: receipt.transactionHash });
 });
 
 export default router;
