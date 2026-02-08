@@ -11,6 +11,12 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
+console.log("VERIFY ENV:", {
+  PORT: process.env.PORT,
+  RPC_URL: process.env.RPC_URL,
+  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS,
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json());

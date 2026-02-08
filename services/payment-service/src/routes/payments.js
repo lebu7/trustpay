@@ -27,6 +27,7 @@ router.post("/invoices", requireAuth, (req, res) => {
     const invoice = db
       .prepare("SELECT * FROM invoices WHERE id = ?")
       .get(info.lastInsertRowid);
+
     res.status(201).json({ invoice });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -114,34 +115,47 @@ router.post("/pay", requireAuth, async (req, res) => {
     .json({ invoice: { ...invoice, status: "PROCESSING" }, payment, risk });
 });
 
-// Confirm payment on blockchain + mark invoice VERIFIED
+// ✅ Confirm payment by verifying the MetaMask tx input via verify-service
 router.post("/confirm", requireAuth, async (req, res) => {
   const { reference, tx_hash } = req.body;
+
   if (!reference) return res.status(400).json({ error: "reference required" });
+  if (!tx_hash || !String(tx_hash).startsWith("0x")) {
+    return res.status(400).json({ error: "tx_hash (0x...) required" });
+  }
 
   const invoice = db
     .prepare("SELECT * FROM invoices WHERE reference = ?")
     .get(reference);
+
   if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
-  // Verify on-chain via verify-service
+  // Verify on-chain via verify-service (tx-based)
   let verifiedData;
   try {
-    const resp = await fetch(
-      `${process.env.VERIFY_SERVICE_URL}/verify/${reference}`,
-    );
-    if (!resp.ok)
-      return res.status(400).json({ error: "Not verified on chain" });
+    const url =
+      `${process.env.VERIFY_SERVICE_URL}/verify/tx/${tx_hash}` +
+      `?refId=${encodeURIComponent(reference)}` +
+      `&amount=${encodeURIComponent(String(invoice.amount))}`;
+
+    const resp = await fetch(url);
+
     verifiedData = await resp.json();
-    if (!verifiedData.verified)
-      return res.status(400).json({ error: "Not verified on chain" });
+
+    if (!resp.ok || !verifiedData?.verified) {
+      return res.status(400).json({
+        error: "Not verified on chain",
+        details: verifiedData,
+      });
+    }
   } catch (err) {
-    return res
-      .status(500)
-      .json({ error: "Verify service error", details: err.message });
+    return res.status(500).json({
+      error: "Verify service error",
+      details: err.message,
+    });
   }
 
-  // Update invoice + attach chain proof
+  // Mark invoice VERIFIED
   db.prepare(`UPDATE invoices SET status = 'VERIFIED' WHERE id = ?`).run(
     invoice.id,
   );
@@ -161,9 +175,9 @@ router.post("/confirm", requireAuth, async (req, res) => {
            chain_timestamp = ?
        WHERE id = ?`,
     ).run(
-      tx_hash || null,
-      verifiedData.payer,
-      String(verifiedData.timestamp),
+      tx_hash,
+      verifiedData.from || null,
+      String(verifiedData.blockNumber || ""),
       latestPayment.id,
     );
   } else {
@@ -172,17 +186,18 @@ router.post("/confirm", requireAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?)`,
     ).run(
       invoice.id,
-      verifiedData.payer,
-      tx_hash || verifiedData.txHash,
-      verifiedData.payer,
-      String(verifiedData.timestamp),
+      verifiedData.from || null,
+      tx_hash,
+      verifiedData.from || null,
+      String(verifiedData.blockNumber || ""),
     );
   }
 
   const updatedInvoice = db
     .prepare("SELECT * FROM invoices WHERE id = ?")
     .get(invoice.id);
-  res.json({ invoice: updatedInvoice, chain: verifiedData });
+
+  return res.json({ invoice: updatedInvoice, chain: verifiedData });
 });
 
 export default router;

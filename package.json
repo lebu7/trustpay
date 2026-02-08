@@ -6,9 +6,16 @@
     "frontend"
   ],
   "scripts": {
+    "node": "hardhat node",
     "dev:auth": "npm --workspace services/auth-service run dev",
     "dev:payment": "npm --workspace services/payment-service run dev",
     "dev:verify": "npm --workspace services/verify-service run dev",
-    "dev:frontend": "npm --workspace frontend run dev"
+    "dev:frontend": "npm --workspace frontend run dev -- --host 0.0.0.0 --port 5173",
+    "dev:chain": "cd contracts && npx hardhat node",
+    "dev:ai": "services/ai-risk-service/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 4004 --reload --reload-dir services/ai-risk-service --app-dir services/ai-risk-service",
+    "dev:all": "concurrently -n CHAIN,AUTH,PAY,VERIFY,AI,WEB -c magenta,cyan,green,yellow,blue,white \"npm run dev:chain\" \"npm run dev:auth\" \"npm run dev:payment\" \"npm run dev:verify\" \"npm run dev:ai\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
