@@ -35,6 +35,30 @@ function Badge({ status }) {
   );
 }
 
+function RiskBadge({ level, score }) {
+  if (!level) {
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+
+  const map = {
+    LOW: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    MEDIUM: "bg-amber-100 text-amber-800 border-amber-200",
+    HIGH: "bg-rose-100 text-rose-800 border-rose-200",
+  };
+  const cls = map[level] || "bg-gray-100 text-gray-800 border-gray-200";
+  const scoreLabel =
+    score !== null && score !== undefined ? ` (${score})` : "";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}`}
+    >
+      {level}
+      {scoreLabel}
+    </span>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [email, setEmail] = useState("admin@trustpay.com");
@@ -353,6 +377,29 @@ export default function App() {
               Blockchain payment proof verification + microservices + AI risk
               scoring (demo).
             </p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 font-semibold text-slate-900">
+                <span>Artificial Intelligence</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                  ✓
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                ai-risk-service (Python/FastAPI)
+              </p>
+              <p className="mt-2 text-sm font-medium text-slate-800">
+                ML-based fraud risk scoring
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">
+                Analyzes
+              </p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">
+                <li>Payment amounts</li>
+                <li>Transaction frequency</li>
+                <li>User behavior patterns</li>
+                <li>Time-of-day anomalies</li>
+              </ul>
+            </div>
             <p className="mt-2 text-xs text-slate-500">
               Contract:{" "}
               <span className="font-mono">
@@ -632,6 +679,7 @@ export default function App() {
                         <th className="px-4 py-3">Reference</th>
                         <th className="px-4 py-3">Amount</th>
                         <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Risk</th>
                         <th className="px-4 py-3">Created</th>
                       </tr>
                     </thead>
@@ -655,6 +703,12 @@ export default function App() {
                           <td className="px-4 py-3">
                             <Badge status={inv.status} />
                           </td>
+                          <td className="px-4 py-3">
+                            <RiskBadge
+                              level={inv.risk_level}
+                              score={inv.risk_score}
+                            />
+                          </td>
                           <td className="px-4 py-3 text-xs text-slate-500">
                             {inv.created_at}
                           </td>
@@ -663,7 +717,7 @@ export default function App() {
 
                       {invoices.length === 0 && (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={4}>
+                          <td className="px-4 py-6 text-slate-500" colSpan={5}>
                             No invoices yet. Create one to begin.
                           </td>
                         </tr>
@@ -677,6 +731,15 @@ export default function App() {
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-semibold">Selected invoice</span>
                       <Badge status={invoice.status} />
+                    </div>
+                    <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">
+                        AI Risk
+                      </span>
+                      <RiskBadge
+                        level={invoice.risk_level}
+                        score={invoice.risk_score}
+                      />
                     </div>
                     <pre className="whitespace-pre-wrap">
                       {JSON.stringify(invoice, null, 2)}

@@ -37,7 +37,22 @@ router.post("/invoices", requireAuth, (req, res) => {
 // List invoices (latest first)
 router.get("/invoices", requireAuth, (req, res) => {
   const rows = db
-    .prepare("SELECT * FROM invoices ORDER BY id DESC LIMIT 50")
+    .prepare(
+      `SELECT invoices.*,
+              payments.risk_score,
+              payments.risk_level
+       FROM invoices
+       LEFT JOIN payments
+         ON payments.id = (
+           SELECT id
+           FROM payments
+           WHERE invoice_id = invoices.id
+           ORDER BY id DESC
+           LIMIT 1
+         )
+       ORDER BY invoices.id DESC
+       LIMIT 50`,
+    )
     .all();
   res.json({ invoices: rows });
 });
