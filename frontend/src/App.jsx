@@ -727,23 +727,65 @@ export default function App() {
                 </div>
 
                 {invoice && (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="font-semibold">Selected invoice</span>
-                      <Badge status={invoice.status} />
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-400">
+                          Selected invoice
+                        </p>
+                        <p className="mt-1 font-mono text-sm text-slate-900">
+                          {invoice.reference}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge status={invoice.status} />
+                        <RiskBadge
+                          level={invoice.risk_level}
+                          score={invoice.risk_score}
+                        />
+                      </div>
                     </div>
-                    <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
-                      <span className="font-semibold text-slate-700">
-                        AI Risk
-                      </span>
-                      <RiskBadge
-                        level={invoice.risk_level}
-                        score={invoice.risk_score}
-                      />
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Amount</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900">
+                          {invoice.amount} {invoice.currency}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Created</p>
+                        <p className="mt-1 text-sm font-medium text-slate-800">
+                          {invoice.created_at}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Customer</p>
+                        <p className="mt-1 text-sm font-medium text-slate-800">
+                          {invoice.customer_name || "Unknown"}
+                        </p>
+                      </div>
                     </div>
-                    <pre className="whitespace-pre-wrap">
-                      {JSON.stringify(invoice, null, 2)}
-                    </pre>
+
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">
+                          AI Risk
+                        </span>
+                        <RiskBadge
+                          level={invoice.risk_level}
+                          score={invoice.risk_score}
+                        />
+                      </div>
+                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+                          View full invoice JSON
+                        </summary>
+                        <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600">
+                          {JSON.stringify(invoice, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
                   </div>
                 )}
               </div>
