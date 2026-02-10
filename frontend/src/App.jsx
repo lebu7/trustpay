@@ -702,8 +702,6 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-<<<<<<< ours
-<<<<<<< ours
                       {invoices.map((inv) => (
                         <tr
                           key={inv.id}
@@ -737,44 +735,6 @@ export default function App() {
                           </td>
                         </tr>
                       ))}
-=======
-=======
->>>>>>> theirs
-                      {invoices.map((inv) => {
-                        const risk = getInvoiceRisk(inv);
-
-                        return (
-                          <tr
-                            key={inv.id}
-                            className="cursor-pointer transition hover:bg-slate-50"
-                            onClick={() => {
-                              setInvoice(inv);
-                              setConfirmRef(inv.reference);
-                              setRecordTxHash("");
-                            }}
-                          >
-                            <td className="px-4 py-3 font-mono text-xs">
-                              {inv.reference}
-                            </td>
-                            <td className="px-4 py-3">
-                              {inv.amount} {inv.currency}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge status={inv.status} />
-                            </td>
-                            <td className="px-4 py-3">
-                              <RiskBadge level={risk.level} score={risk.score} />
-                            </td>
-                            <td className="px-4 py-3 text-xs text-slate-500">
-                              {inv.created_at}
-                            </td>
-                          </tr>
-                        );
-                      })}
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
 
                       {invoices.length === 0 && (
                         <tr>
@@ -823,15 +783,7 @@ export default function App() {
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Customer</p>
                         <p className="mt-1 text-sm font-medium text-slate-800">
-<<<<<<< ours
-<<<<<<< ours
                           {invoice.customer_name || `Customer #${invoice.customer_id}`}
-=======
-                          {invoice.customer_name || me?.full_name || "Unknown customer"}
->>>>>>> theirs
-=======
-                          {invoice.customer_name || me?.full_name || "Unknown customer"}
->>>>>>> theirs
                         </p>
                       </div>
                     </div>
