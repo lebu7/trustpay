@@ -703,6 +703,7 @@ export default function App() {
                     </thead>
                     <tbody className="divide-y divide-slate-200">
 <<<<<<< ours
+<<<<<<< ours
                       {invoices.map((inv) => (
                         <tr
                           key={inv.id}
@@ -737,6 +738,8 @@ export default function App() {
                         </tr>
                       ))}
 =======
+=======
+>>>>>>> theirs
                       {invoices.map((inv) => {
                         const risk = getInvoiceRisk(inv);
 
@@ -768,6 +771,9 @@ export default function App() {
                           </tr>
                         );
                       })}
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
                       {invoices.length === 0 && (
@@ -818,7 +824,11 @@ export default function App() {
                         <p className="text-xs text-slate-500">Customer</p>
                         <p className="mt-1 text-sm font-medium text-slate-800">
 <<<<<<< ours
+<<<<<<< ours
                           {invoice.customer_name || `Customer #${invoice.customer_id}`}
+=======
+                          {invoice.customer_name || me?.full_name || "Unknown customer"}
+>>>>>>> theirs
 =======
                           {invoice.customer_name || me?.full_name || "Unknown customer"}
 >>>>>>> theirs
