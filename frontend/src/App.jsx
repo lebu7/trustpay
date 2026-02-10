@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api, setAuthToken } from "./api";
 import {
   connectWallet,
@@ -63,6 +63,21 @@ function RiskBadge({ level, score }) {
   );
 }
 
+function getInvoiceRisk(invoice) {
+  return {
+    level:
+      invoice?.risk_level ||
+      invoice?.risk?.level ||
+      invoice?.risk?.risk_level ||
+      null,
+    score:
+      invoice?.risk_score ??
+      invoice?.risk?.score ??
+      invoice?.risk?.risk_score ??
+      null,
+  };
+}
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [email, setEmail] = useState("admin@trustpay.com");
@@ -78,6 +93,7 @@ export default function App() {
 
   const [invoices, setInvoices] = useState([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const loadingInvoicesRef = useRef(false);
 
   const [wallet, setWallet] = useState(null);
   const [walletErr, setWalletErr] = useState("");
@@ -109,7 +125,9 @@ export default function App() {
   );
 
   const loadInvoices = useCallback(async () => {
-    if (!token) return;
+    if (!token || loadingInvoicesRef.current) return;
+
+    loadingInvoicesRef.current = true;
     setLoadingInvoices(true);
     try {
       const res = await api.get("/payments/invoices");
@@ -118,6 +136,7 @@ export default function App() {
     } catch (e) {
       setErr(e?.response?.data?.error || "Failed to load invoices");
     } finally {
+      loadingInvoicesRef.current = false;
       setLoadingInvoices(false);
     }
   }, [token, withCustomerName]);
@@ -379,6 +398,8 @@ export default function App() {
     setWalletErr("");
   }
 
+  const selectedInvoiceRisk = invoice ? getInvoiceRisk(invoice) : null;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-4 py-10">
@@ -627,20 +648,23 @@ export default function App() {
                   </div>
 
                   {recordTxHash && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                      <div className="font-semibold text-slate-600">
-                        MetaMask tx hash used for confirm:
+                    <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-xs text-slate-700">
+                      <div className="font-semibold uppercase tracking-wide text-blue-700">
+                        MetaMask tx hash used for confirm
                       </div>
-                      <div className="mt-1 font-mono break-all">
+                      <code className="mt-2 block max-h-20 overflow-auto rounded-lg bg-white/80 p-2 font-mono text-[11px] leading-relaxed text-slate-800">
                         {recordTxHash}
-                      </div>
+                      </code>
                     </div>
                   )}
                 </div>
 
                 {confirmResult && (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                    <pre className="whitespace-pre-wrap">
+                  <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-xs text-slate-700">
+                    <div className="font-semibold uppercase tracking-wide text-emerald-700">
+                      Confirmation details
+                    </div>
+                    <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-white/80 p-3 font-mono text-[11px] leading-relaxed text-slate-700">
                       {JSON.stringify(confirmResult, null, 2)}
                     </pre>
                   </div>
@@ -658,7 +682,8 @@ export default function App() {
                   </h2>
                   <button
                     onClick={loadInvoices}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={loadingInvoices}
                   >
                     {loadingInvoices ? "Loading..." : "Refresh"}
                   </button>
@@ -677,6 +702,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
+<<<<<<< ours
                       {invoices.map((inv) => (
                         <tr
                           key={inv.id}
@@ -710,6 +736,39 @@ export default function App() {
                           </td>
                         </tr>
                       ))}
+=======
+                      {invoices.map((inv) => {
+                        const risk = getInvoiceRisk(inv);
+
+                        return (
+                          <tr
+                            key={inv.id}
+                            className="cursor-pointer transition hover:bg-slate-50"
+                            onClick={() => {
+                              setInvoice(inv);
+                              setConfirmRef(inv.reference);
+                              setRecordTxHash("");
+                            }}
+                          >
+                            <td className="px-4 py-3 font-mono text-xs">
+                              {inv.reference}
+                            </td>
+                            <td className="px-4 py-3">
+                              {inv.amount} {inv.currency}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge status={inv.status} />
+                            </td>
+                            <td className="px-4 py-3">
+                              <RiskBadge level={risk.level} score={risk.score} />
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500">
+                              {inv.created_at}
+                            </td>
+                          </tr>
+                        );
+                      })}
+>>>>>>> theirs
 
                       {invoices.length === 0 && (
                         <tr>
@@ -736,8 +795,8 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <Badge status={invoice.status} />
                         <RiskBadge
-                          level={invoice.risk_level}
-                          score={invoice.risk_score}
+                          level={selectedInvoiceRisk.level}
+                          score={selectedInvoiceRisk.score}
                         />
                       </div>
                     </div>
@@ -758,7 +817,11 @@ export default function App() {
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Customer</p>
                         <p className="mt-1 text-sm font-medium text-slate-800">
+<<<<<<< ours
                           {invoice.customer_name || `Customer #${invoice.customer_id}`}
+=======
+                          {invoice.customer_name || me?.full_name || "Unknown customer"}
+>>>>>>> theirs
                         </p>
                       </div>
                     </div>
@@ -769,8 +832,8 @@ export default function App() {
                           AI Risk
                         </span>
                         <RiskBadge
-                          level={invoice.risk_level}
-                          score={invoice.risk_score}
+                          level={selectedInvoiceRisk.level}
+                          score={selectedInvoiceRisk.score}
                         />
                       </div>
                       <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">

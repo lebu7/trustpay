@@ -130,6 +130,68 @@ router.post("/pay", requireAuth, async (req, res) => {
     .json({ invoice: { ...invoice, status: "PROCESSING" }, payment, risk });
 });
 
+
+async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
+  const defaults = {
+    risk_score: 15,
+    risk_level: "LOW",
+    reasons: ["Scored during confirmation"],
+  };
+
+  try {
+    const now = new Date();
+    const hour_of_day = now.getHours();
+
+    const attempts_last_10min = db
+      .prepare(
+        `SELECT COUNT(1) AS count
+         FROM payments
+         WHERE created_at >= datetime('now', '-10 minutes')
+           AND invoice_id IN (
+             SELECT id FROM invoices WHERE customer_id = ?
+           )`,
+      )
+      .get(userId)?.count || 0;
+
+    const payments_last_24h = db
+      .prepare(
+        `SELECT COUNT(1) AS count
+         FROM payments
+         WHERE created_at >= datetime('now', '-24 hours')
+           AND invoice_id IN (
+             SELECT id FROM invoices WHERE customer_id = ?
+           )`,
+      )
+      .get(userId)?.count || 0;
+
+    const resp = await fetch(`${process.env.AI_RISK_URL}/risk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: invoice.amount,
+        currency: invoice.currency,
+        customer_id: userId,
+        payer_wallet: payerWallet,
+        attempts_last_10min,
+        payments_last_24h,
+        is_new_customer: false,
+        hour_of_day,
+      }),
+    });
+
+    if (!resp.ok) return defaults;
+
+    const scored = await resp.json();
+    return {
+      risk_score: scored?.risk_score ?? defaults.risk_score,
+      risk_level: scored?.risk_level || defaults.risk_level,
+      reasons: Array.isArray(scored?.reasons) ? scored.reasons : defaults.reasons,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 // ✅ Confirm payment by verifying the MetaMask tx input via verify-service
 router.post("/confirm", requireAuth, async (req, res) => {
   const { reference, tx_hash } = req.body;
@@ -182,34 +244,79 @@ router.post("/confirm", requireAuth, async (req, res) => {
     )
     .get(invoice.id);
 
+  const needsRiskScoring =
+    !latestPayment ||
+    latestPayment.risk_score === null ||
+    latestPayment.risk_level === null;
+
+  const confirmRisk = needsRiskScoring
+    ? await scoreInvoiceRisk({
+        invoice,
+        userId: req.user.id,
+        payerWallet: verifiedData.from || latestPayment?.payer_wallet || "0xUNKNOWN",
+      })
+    : null;
+
   if (latestPayment) {
     db.prepare(
       `UPDATE payments
        SET tx_hash = COALESCE(?, tx_hash),
            chain_payer = ?,
-           chain_timestamp = ?
+           chain_timestamp = ?,
+           risk_score = COALESCE(?, risk_score),
+           risk_level = COALESCE(?, risk_level),
+           risk_reasons = COALESCE(?, risk_reasons)
        WHERE id = ?`,
     ).run(
       tx_hash,
       verifiedData.from || null,
       String(verifiedData.blockNumber || ""),
+      confirmRisk?.risk_score ?? null,
+      confirmRisk?.risk_level ?? null,
+      confirmRisk ? JSON.stringify(confirmRisk.reasons) : null,
       latestPayment.id,
     );
   } else {
     db.prepare(
-      `INSERT INTO payments (invoice_id, payer_wallet, tx_hash, chain_payer, chain_timestamp)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO payments (
+         invoice_id,
+         payer_wallet,
+         tx_hash,
+         chain_payer,
+         chain_timestamp,
+         risk_score,
+         risk_level,
+         risk_reasons
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       invoice.id,
-      verifiedData.from || null,
+      verifiedData.from || "0xUNKNOWN",
       tx_hash,
       verifiedData.from || null,
       String(verifiedData.blockNumber || ""),
+      confirmRisk?.risk_score ?? 15,
+      confirmRisk?.risk_level ?? "LOW",
+      JSON.stringify(confirmRisk?.reasons || ["Scored during confirmation"]),
     );
   }
 
   const updatedInvoice = db
-    .prepare("SELECT * FROM invoices WHERE id = ?")
+    .prepare(
+      `SELECT invoices.*,
+              payments.risk_score,
+              payments.risk_level
+       FROM invoices
+       LEFT JOIN payments
+         ON payments.id = (
+           SELECT id
+           FROM payments
+           WHERE invoice_id = invoices.id
+           ORDER BY id DESC
+           LIMIT 1
+         )
+       WHERE invoices.id = ?`,
+    )
     .get(invoice.id);
 
   return res.json({ invoice: updatedInvoice, chain: verifiedData });
