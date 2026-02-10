@@ -37,7 +37,11 @@ function Badge({ status }) {
 
 function RiskBadge({ level, score }) {
   if (!level) {
-    return <span className="text-xs text-slate-400">—</span>;
+    return (
+      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+        Not scored
+      </span>
+    );
   }
 
   const map = {
@@ -94,18 +98,29 @@ export default function App() {
     }
   }, []);
 
+  const withCustomerName = useCallback(
+    (inv) => ({
+      ...inv,
+      customer_name:
+        inv.customer_name ||
+        (me && Number(inv.customer_id) === Number(me.id) ? me.full_name : ""),
+    }),
+    [me],
+  );
+
   const loadInvoices = useCallback(async () => {
     if (!token) return;
     setLoadingInvoices(true);
     try {
       const res = await api.get("/payments/invoices");
-      setInvoices(res.data.invoices || []);
+      const nextInvoices = (res.data.invoices || []).map(withCustomerName);
+      setInvoices(nextInvoices);
     } catch (e) {
       setErr(e?.response?.data?.error || "Failed to load invoices");
     } finally {
       setLoadingInvoices(false);
     }
-  }, [token]);
+  }, [token, withCustomerName]);
 
   // Keep axios auth header + localStorage in sync with token
   useEffect(() => {
@@ -211,7 +226,7 @@ export default function App() {
         description: desc,
       });
 
-      setInvoice(res.data.invoice);
+      setInvoice(withCustomerName(res.data.invoice));
       setConfirmRef(res.data.invoice.reference);
 
       setNotice("Invoice created. Record on-chain (MetaMask), then Confirm.");
@@ -340,7 +355,7 @@ export default function App() {
       });
 
       setConfirmResult(res.data);
-      if (res.data?.invoice) setInvoice(res.data.invoice);
+      if (res.data?.invoice) setInvoice(withCustomerName(res.data.invoice));
 
       setNotice("Payment confirmed and verified on-chain ✅");
       loadInvoices();
@@ -377,29 +392,6 @@ export default function App() {
               Blockchain payment proof verification + microservices + AI risk
               scoring (demo).
             </p>
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-              <div className="flex items-center gap-2 font-semibold text-slate-900">
-                <span>Artificial Intelligence</span>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                  ✓
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">
-                ai-risk-service (Python/FastAPI)
-              </p>
-              <p className="mt-2 text-sm font-medium text-slate-800">
-                ML-based fraud risk scoring
-              </p>
-              <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">
-                Analyzes
-              </p>
-              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">
-                <li>Payment amounts</li>
-                <li>Transaction frequency</li>
-                <li>User behavior patterns</li>
-                <li>Time-of-day anomalies</li>
-              </ul>
-            </div>
             <p className="mt-2 text-xs text-slate-500">
               Contract:{" "}
               <span className="font-mono">
@@ -680,6 +672,7 @@ export default function App() {
                         <th className="px-4 py-3">Amount</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Risk</th>
+                        <th className="px-4 py-3">Customer</th>
                         <th className="px-4 py-3">Created</th>
                       </tr>
                     </thead>
@@ -709,6 +702,9 @@ export default function App() {
                               score={inv.risk_score}
                             />
                           </td>
+                          <td className="px-4 py-3 text-xs text-slate-600">
+                            {inv.customer_name || `Customer #${inv.customer_id}`}
+                          </td>
                           <td className="px-4 py-3 text-xs text-slate-500">
                             {inv.created_at}
                           </td>
@@ -717,7 +713,7 @@ export default function App() {
 
                       {invoices.length === 0 && (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={5}>
+                          <td className="px-4 py-6 text-slate-500" colSpan={6}>
                             No invoices yet. Create one to begin.
                           </td>
                         </tr>
@@ -762,7 +758,7 @@ export default function App() {
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Customer</p>
                         <p className="mt-1 text-sm font-medium text-slate-800">
-                          {invoice.customer_name || "Unknown"}
+                          {invoice.customer_name || `Customer #${invoice.customer_id}`}
                         </p>
                       </div>
                     </div>
