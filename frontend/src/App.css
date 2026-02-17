@@ -6,6 +6,5 @@ body,
 
 body {
   margin: 0;
-  /* IMPORTANT: do NOT hide overflow-x; it causes tables + buttons to look cut */
-  overflow-x: visible;
+  overflow-x: visible; /* important: don't force-hide horizontal scroll */
 }

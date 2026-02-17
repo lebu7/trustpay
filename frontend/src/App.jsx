@@ -28,7 +28,7 @@ function Badge({ status }) {
   const cls = map[status] || "bg-gray-100 text-gray-800 border-gray-200";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${cls}`}
     >
       {status}
     </span>
@@ -104,6 +104,10 @@ export default function App() {
   const [err, setErr] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // ✅ Delete invoice modal state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadMe = useCallback(async () => {
     try {
@@ -316,7 +320,7 @@ export default function App() {
       );
 
       const amt = BigInt(Number(invoice?.amount ?? amount));
-      const proofTxHashValue = "0xTEMP"; // metadata for demo
+      const proofTxHashValue = "0xTEMP"; // metadata demo
 
       setNotice("Sending transaction in MetaMask...");
       const tx = await contract.recordPayment(confirmRef, amt, proofTxHashValue);
@@ -381,6 +385,35 @@ export default function App() {
     }
   }
 
+  // ✅ DELETE invoice (PENDING/FAILED only)
+  async function deleteInvoice(inv) {
+    if (!inv?.id) return;
+
+    setErr("");
+    setNotice("");
+    setDeleting(true);
+
+    try {
+      await paymentApi.delete(`/payments/invoices/${inv.id}`);
+
+      // If the deleted invoice was selected, clear selection
+      if (invoice?.id === inv.id) {
+        setInvoice(null);
+        setConfirmRef("");
+        setRecordTxHash("");
+        setConfirmResult(null);
+      }
+
+      setDeleteConfirm(null);
+      setNotice(`Deleted invoice ${inv.reference}`);
+      loadInvoices();
+    } catch (e) {
+      setErr(e?.response?.data?.error || "Failed to delete invoice");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function logout() {
     setToken("");
     setMe(null);
@@ -392,13 +425,14 @@ export default function App() {
     setErr("");
     setNotice("");
     setWalletErr("");
+    setDeleteConfirm(null);
   }
 
   const selectedInvoiceRisk = invoice ? getInvoiceRisk(invoice) : null;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Wider container fixes the “cramped” desktop layout */}
+      {/* ✅ max-w-7xl + grid fixes desktop spacing */}
       <div className="mx-auto max-w-7xl px-4 py-10">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -531,13 +565,14 @@ export default function App() {
                   Confirm payment → verify-service checks tx input → invoice
                   becomes VERIFIED
                 </li>
+                <li>Delete PENDING/FAILED invoices (admin/customer rules)</li>
               </ul>
             </div>
           </div>
         ) : (
           /* Logged in */
           <div className="mt-8 grid gap-6 lg:grid-cols-12">
-            {/* Left column: wider than before so buttons don’t look “squeezed” */}
+            {/* Left column */}
             <div className="space-y-6 lg:col-span-4 min-w-0">
               {/* Account */}
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -627,7 +662,7 @@ export default function App() {
                     />
                   </label>
 
-                  {/* ✅ GRID fixes the “not arranged” buttons on desktop */}
+                  {/* ✅ Always arranged: grid + full width buttons */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       onClick={recordOnChain}
@@ -689,9 +724,9 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* ✅ overflow-x-auto + min table width fixes cut-off Created At */}
+                {/* ✅ table scrolls instead of cutting off Created */}
                 <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="min-w-[1100px] w-full text-left text-sm">
+                  <table className="min-w-[1250px] w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs text-slate-600">
                       <tr className="[&>th]:whitespace-nowrap">
                         <th className="px-4 py-3">Reference</th>
@@ -700,47 +735,71 @@ export default function App() {
                         <th className="px-4 py-3">Risk</th>
                         <th className="px-4 py-3">Customer</th>
                         <th className="px-4 py-3">Created</th>
+                        <th className="px-4 py-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {invoices.map((inv) => (
-                        <tr
-                          key={inv.id}
-                          className="cursor-pointer transition hover:bg-slate-50"
-                          onClick={() => {
-                            setInvoice(inv);
-                            setConfirmRef(inv.reference);
-                            setRecordTxHash("");
-                          }}
-                        >
-                          <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
-                            {inv.reference}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {inv.amount} {inv.currency}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <Badge status={inv.status} />
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <RiskBadge
-                              level={inv.risk_level}
-                              score={inv.risk_score}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
-                            {inv.customer_name ||
-                              `Customer #${inv.customer_id}`}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
-                            {inv.created_at}
-                          </td>
-                        </tr>
-                      ))}
+                      {invoices.map((inv) => {
+                        const canDelete =
+                          inv.status === "PENDING" || inv.status === "FAILED";
+
+                        return (
+                          <tr
+                            key={inv.id}
+                            className="cursor-pointer transition hover:bg-slate-50"
+                            onClick={() => {
+                              setInvoice(inv);
+                              setConfirmRef(inv.reference);
+                              setRecordTxHash("");
+                            }}
+                          >
+                            <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                              {inv.reference}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {inv.amount} {inv.currency}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <Badge status={inv.status} />
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <RiskBadge
+                                level={inv.risk_level}
+                                score={inv.risk_score}
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                              {inv.customer_name ||
+                                `Customer #${inv.customer_id}`}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                              {inv.created_at}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {canDelete ? (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirm(inv);
+                                  }}
+                                  className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                                  title="Delete invoice"
+                                >
+                                  Delete
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
 
                       {invoices.length === 0 && (
                         <tr>
-                          <td className="px-4 py-6 text-slate-500" colSpan={6}>
+                          <td className="px-4 py-6 text-slate-500" colSpan={7}>
                             No invoices yet. Create one to begin.
                           </td>
                         </tr>
@@ -813,6 +872,54 @@ export default function App() {
                   Persist the MetaMask tx hash in the invoice row so it survives
                   refresh and can be re-verified without re-recording.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Delete confirmation modal */}
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Delete invoice?
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                This will permanently delete:
+              </p>
+
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="text-xs text-slate-500">Reference</div>
+                <div className="mt-1 font-mono text-xs break-all">
+                  {deleteConfirm.reference}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Badge status={deleteConfirm.status} />
+                  <span className="text-xs text-slate-600">
+                    {deleteConfirm.amount} {deleteConfirm.currency}
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs text-slate-500">
+                Only <b>PENDING</b> or <b>FAILED</b> invoices can be deleted.
+              </p>
+
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={deleting}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteInvoice(deleteConfirm)}
+                  disabled={deleting}
+                  className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60"
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
               </div>
             </div>
           </div>

@@ -20,7 +20,7 @@ router.post("/invoices", requireAuth, (req, res) => {
     const info = db
       .prepare(
         `INSERT INTO invoices (reference, customer_id, description, amount, currency)
-       VALUES (?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?)`,
       )
       .run(reference, req.user.id, description, amount, currency);
 
@@ -54,7 +54,56 @@ router.get("/invoices", requireAuth, (req, res) => {
        LIMIT 50`,
     )
     .all();
+
   res.json({ invoices: rows });
+});
+
+// ✅ Delete invoice (PENDING/FAILED only)
+router.delete("/invoices/:id", requireAuth, (req, res) => {
+  const invoiceId = Number(req.params.id);
+  if (!invoiceId) return res.status(400).json({ error: "Invalid invoice id" });
+
+  const invoice = db
+    .prepare("SELECT * FROM invoices WHERE id = ?")
+    .get(invoiceId);
+
+  if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+  // Ownership rules: customers can only delete their own invoices
+  if (
+    req.user.role === "customer" &&
+    Number(invoice.customer_id) !== Number(req.user.id)
+  ) {
+    return res
+      .status(403)
+      .json({ error: "Not authorized to delete this invoice" });
+  }
+
+  // Protect audit trail
+  if (invoice.status === "VERIFIED" || invoice.status === "PROCESSING") {
+    return res.status(403).json({
+      error: `Cannot delete invoice with status ${invoice.status}`,
+    });
+  }
+
+  // Only allow PENDING or FAILED
+  if (invoice.status !== "PENDING" && invoice.status !== "FAILED") {
+    return res.status(403).json({
+      error: "Only PENDING or FAILED invoices can be deleted",
+    });
+  }
+
+  try {
+    // delete related payments first (FK safety)
+    db.prepare("DELETE FROM payments WHERE invoice_id = ?").run(invoiceId);
+
+    // then delete invoice
+    db.prepare("DELETE FROM invoices WHERE id = ?").run(invoiceId);
+
+    return res.json({ success: true, deleted_id: invoiceId });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Record payment attempt + call AI
@@ -78,7 +127,6 @@ router.post("/pay", requireAuth, async (req, res) => {
     .get(reference);
   if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
-  // Call AI risk service
   let risk = { risk_score: 0, risk_level: "LOW", reasons: ["Normal behavior"] };
 
   try {
@@ -105,7 +153,7 @@ router.post("/pay", requireAuth, async (req, res) => {
   const info = db
     .prepare(
       `INSERT INTO payments (invoice_id, payer_wallet, tx_hash, risk_score, risk_level, risk_reasons)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
     .run(
       invoice.id,
@@ -116,7 +164,6 @@ router.post("/pay", requireAuth, async (req, res) => {
       JSON.stringify(risk.reasons),
     );
 
-  // Update invoice status (for now)
   db.prepare(`UPDATE invoices SET status = 'PROCESSING' WHERE id = ?`).run(
     invoice.id,
   );
@@ -145,11 +192,11 @@ async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
       db
         .prepare(
           `SELECT COUNT(1) AS count
-         FROM payments
-         WHERE created_at >= datetime('now', '-10 minutes')
-           AND invoice_id IN (
-             SELECT id FROM invoices WHERE customer_id = ?
-           )`,
+           FROM payments
+           WHERE created_at >= datetime('now', '-10 minutes')
+             AND invoice_id IN (
+               SELECT id FROM invoices WHERE customer_id = ?
+             )`,
         )
         .get(userId)?.count || 0;
 
@@ -157,11 +204,11 @@ async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
       db
         .prepare(
           `SELECT COUNT(1) AS count
-         FROM payments
-         WHERE created_at >= datetime('now', '-24 hours')
-           AND invoice_id IN (
-             SELECT id FROM invoices WHERE customer_id = ?
-           )`,
+           FROM payments
+           WHERE created_at >= datetime('now', '-24 hours')
+             AND invoice_id IN (
+               SELECT id FROM invoices WHERE customer_id = ?
+             )`,
         )
         .get(userId)?.count || 0;
 
@@ -195,7 +242,7 @@ async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
   }
 }
 
-// ✅ Confirm payment by verifying the MetaMask tx on-chain via verify-service
+// Confirm payment via verify-service
 router.post("/confirm", requireAuth, async (req, res) => {
   const { reference, tx_hash } = req.body;
 
@@ -210,7 +257,6 @@ router.post("/confirm", requireAuth, async (req, res) => {
 
   if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
-  // Verify on-chain via verify-service (tx-based)
   let verifiedData;
   try {
     const url =
@@ -234,12 +280,10 @@ router.post("/confirm", requireAuth, async (req, res) => {
     });
   }
 
-  // Mark invoice VERIFIED
   db.prepare(`UPDATE invoices SET status = 'VERIFIED' WHERE id = ?`).run(
     invoice.id,
   );
 
-  // Prefer event fields (more trustworthy), fallback to tx.from / blockNumber
   const chainPayer = verifiedData?.event?.payer || verifiedData?.from || null;
 
   const chainTimestamp =
@@ -247,7 +291,6 @@ router.post("/confirm", requireAuth, async (req, res) => {
       ? String(verifiedData.event.timestamp)
       : null;
 
-  // Update latest payment row for that invoice (or create one if missing)
   const latestPayment = db
     .prepare(
       "SELECT * FROM payments WHERE invoice_id = ? ORDER BY id DESC LIMIT 1",
