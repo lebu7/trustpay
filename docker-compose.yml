@@ -1,0 +1,63 @@
+services:
+  hardhat:
+    build: ./contracts
+    ports:
+      - "8545:8545"
+    command: ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]
+    environment:
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+
+  auth-service:
+    build: ./services/auth-service
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - JWT_SECRET=${JWT_SECRET}
+
+  verify-service:
+    build: ./services/verify-service
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+      - RPC_URL=http://hardhat:8545
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+    depends_on:
+      - hardhat
+
+  ai-risk-service:
+    build: ./services/ai-risk-service
+    ports:
+      - "4004:4004"
+    environment:
+      - PORT=4004
+
+  payment-service:
+    build: ./services/payment-service
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=http://auth-service:4001
+      - VERIFY_SERVICE_URL=http://verify-service:4003
+      - AI_RISK_URL=http://ai-risk-service:4004
+    depends_on:
+      - auth-service
+      - verify-service
+      - ai-risk-service
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_AUTH_URL=http://localhost:4001
+      - VITE_PAYMENT_URL=http://localhost:4002
+      - VITE_VERIFY_URL=http://localhost:4003
+      - VITE_CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - VITE_CHAIN_ID=31337
+    depends_on:
+      - auth-service
+      - payment-service

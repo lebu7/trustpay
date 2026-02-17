@@ -130,7 +130,6 @@ router.post("/pay", requireAuth, async (req, res) => {
     .json({ invoice: { ...invoice, status: "PROCESSING" }, payment, risk });
 });
 
-
 async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
   const defaults = {
     risk_score: 15,
@@ -142,27 +141,29 @@ async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
     const now = new Date();
     const hour_of_day = now.getHours();
 
-    const attempts_last_10min = db
-      .prepare(
-        `SELECT COUNT(1) AS count
+    const attempts_last_10min =
+      db
+        .prepare(
+          `SELECT COUNT(1) AS count
          FROM payments
          WHERE created_at >= datetime('now', '-10 minutes')
            AND invoice_id IN (
              SELECT id FROM invoices WHERE customer_id = ?
            )`,
-      )
-      .get(userId)?.count || 0;
+        )
+        .get(userId)?.count || 0;
 
-    const payments_last_24h = db
-      .prepare(
-        `SELECT COUNT(1) AS count
+    const payments_last_24h =
+      db
+        .prepare(
+          `SELECT COUNT(1) AS count
          FROM payments
          WHERE created_at >= datetime('now', '-24 hours')
            AND invoice_id IN (
              SELECT id FROM invoices WHERE customer_id = ?
            )`,
-      )
-      .get(userId)?.count || 0;
+        )
+        .get(userId)?.count || 0;
 
     const resp = await fetch(`${process.env.AI_RISK_URL}/risk`, {
       method: "POST",
@@ -185,14 +186,16 @@ async function scoreInvoiceRisk({ invoice, userId, payerWallet }) {
     return {
       risk_score: scored?.risk_score ?? defaults.risk_score,
       risk_level: scored?.risk_level || defaults.risk_level,
-      reasons: Array.isArray(scored?.reasons) ? scored.reasons : defaults.reasons,
+      reasons: Array.isArray(scored?.reasons)
+        ? scored.reasons
+        : defaults.reasons,
     };
   } catch {
     return defaults;
   }
 }
 
-// ✅ Confirm payment by verifying the MetaMask tx input via verify-service
+// ✅ Confirm payment by verifying the MetaMask tx on-chain via verify-service
 router.post("/confirm", requireAuth, async (req, res) => {
   const { reference, tx_hash } = req.body;
 
@@ -216,7 +219,6 @@ router.post("/confirm", requireAuth, async (req, res) => {
       `&amount=${encodeURIComponent(String(invoice.amount))}`;
 
     const resp = await fetch(url);
-
     verifiedData = await resp.json();
 
     if (!resp.ok || !verifiedData?.verified) {
@@ -237,6 +239,14 @@ router.post("/confirm", requireAuth, async (req, res) => {
     invoice.id,
   );
 
+  // Prefer event fields (more trustworthy), fallback to tx.from / blockNumber
+  const chainPayer = verifiedData?.event?.payer || verifiedData?.from || null;
+
+  const chainTimestamp =
+    verifiedData?.event?.timestamp != null
+      ? String(verifiedData.event.timestamp)
+      : null;
+
   // Update latest payment row for that invoice (or create one if missing)
   const latestPayment = db
     .prepare(
@@ -253,7 +263,7 @@ router.post("/confirm", requireAuth, async (req, res) => {
     ? await scoreInvoiceRisk({
         invoice,
         userId: req.user.id,
-        payerWallet: verifiedData.from || latestPayment?.payer_wallet || "0xUNKNOWN",
+        payerWallet: chainPayer || latestPayment?.payer_wallet || "0xUNKNOWN",
       })
     : null;
 
@@ -269,8 +279,8 @@ router.post("/confirm", requireAuth, async (req, res) => {
        WHERE id = ?`,
     ).run(
       tx_hash,
-      verifiedData.from || null,
-      String(verifiedData.blockNumber || ""),
+      chainPayer,
+      chainTimestamp,
       confirmRisk?.risk_score ?? null,
       confirmRisk?.risk_level ?? null,
       confirmRisk ? JSON.stringify(confirmRisk.reasons) : null,
@@ -291,10 +301,10 @@ router.post("/confirm", requireAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       invoice.id,
-      verifiedData.from || "0xUNKNOWN",
+      chainPayer || "0xUNKNOWN",
       tx_hash,
-      verifiedData.from || null,
-      String(verifiedData.blockNumber || ""),
+      chainPayer,
+      chainTimestamp,
       confirmRisk?.risk_score ?? 15,
       confirmRisk?.risk_level ?? "LOW",
       JSON.stringify(confirmRisk?.reasons || ["Scored during confirmation"]),

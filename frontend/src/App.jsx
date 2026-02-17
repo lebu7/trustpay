@@ -1,6 +1,6 @@
 // frontend/src/App.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
-import { api, setAuthToken } from "./api";
+import { authApi, paymentApi, setAuthToken } from "./api";
 import {
   connectWallet,
   getConnectedWallet,
@@ -107,7 +107,7 @@ export default function App() {
 
   const loadMe = useCallback(async () => {
     try {
-      const res = await api.get("/auth/me");
+      const res = await authApi.get("/auth/me");
       setMe(res.data.user);
     } catch {
       setMe(null);
@@ -121,7 +121,7 @@ export default function App() {
         inv.customer_name ||
         (me && Number(inv.customer_id) === Number(me.id) ? me.full_name : ""),
     }),
-    [me],
+    [me]
   );
 
   const loadInvoices = useCallback(async () => {
@@ -130,7 +130,7 @@ export default function App() {
     loadingInvoicesRef.current = true;
     setLoadingInvoices(true);
     try {
-      const res = await api.get("/payments/invoices");
+      const res = await paymentApi.get("/payments/invoices");
       const nextInvoices = (res.data.invoices || []).map(withCustomerName);
       setInvoices(nextInvoices);
     } catch (e) {
@@ -167,7 +167,7 @@ export default function App() {
       }
 
       try {
-        const res = await api.get("/auth/me");
+        const res = await authApi.get("/auth/me");
         if (!cancelled) setMe(res.data.user);
       } catch {
         if (!cancelled) setMe(null);
@@ -222,7 +222,7 @@ export default function App() {
     setNotice("");
     setBusy(true);
     try {
-      const res = await api.post("/auth/login", { email, password });
+      const res = await authApi.post("/auth/login", { email, password });
       setToken(res.data.token);
     } catch (e2) {
       setErr(e2?.response?.data?.error || "Login failed");
@@ -239,7 +239,7 @@ export default function App() {
     setBusy(true);
 
     try {
-      const res = await api.post("/payments/invoices", {
+      const res = await paymentApi.post("/payments/invoices", {
         amount: Number(amount),
         currency: "KES",
         description: desc,
@@ -368,7 +368,7 @@ export default function App() {
         return;
       }
 
-      const res = await api.post("/payments/confirm", {
+      const res = await paymentApi.post("/payments/confirm", {
         reference: confirmRef,
         tx_hash: recordTxHash,
       });
@@ -816,8 +816,9 @@ export default function App() {
                   Next improvement
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  You can now show VERIFIED instantly after Confirm. Later, you can store tx hash
-                  in the invoice row too (so refresh persists it).
+                  You can now show VERIFIED instantly after Confirm. Later, you
+                  can store tx hash in the invoice row too (so refresh persists
+                  it).
                 </p>
               </div>
             </div>
