@@ -1,0 +1,11 @@
+**/node_modules
+**/.git
+**/.env
+**/.env.*
+**/*.db
+**/*.sqlite*
+**/dist
+**/build
+**/__pycache__
+**/.venv
+**/venv
