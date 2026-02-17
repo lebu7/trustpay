@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
 import { authApi, paymentApi, setAuthToken } from "./api";
 import {
@@ -10,6 +9,7 @@ import {
   HARDHAT_CHAIN_ID_DEC,
 } from "./wallet";
 import { ethers } from "ethers";
+import "./App.css";
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 
@@ -38,7 +38,7 @@ function Badge({ status }) {
 function RiskBadge({ level, score }) {
   if (!level) {
     return (
-      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 whitespace-nowrap">
         Not scored
       </span>
     );
@@ -55,7 +55,7 @@ function RiskBadge({ level, score }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${cls}`}
     >
       {level}
       {scoreLabel}
@@ -98,7 +98,7 @@ export default function App() {
   const [wallet, setWallet] = useState(null);
   const [walletErr, setWalletErr] = useState("");
 
-  // ✅ stores MetaMask transaction hash for the on-chain recordPayment tx
+  // stores MetaMask transaction hash for the on-chain recordPayment tx
   const [recordTxHash, setRecordTxHash] = useState("");
 
   const [err, setErr] = useState("");
@@ -316,14 +316,11 @@ export default function App() {
       );
 
       const amt = BigInt(Number(invoice?.amount ?? amount));
-
-      // ✅ This value is just stored in the contract as metadata (demo)
-      const proofTxHashValue = "0xTEMP";
+      const proofTxHashValue = "0xTEMP"; // metadata for demo
 
       setNotice("Sending transaction in MetaMask...");
       const tx = await contract.recordPayment(confirmRef, amt, proofTxHashValue);
 
-      // ✅ store MetaMask tx hash for confirm()
       setRecordTxHash(tx.hash);
 
       setNotice(
@@ -362,7 +359,6 @@ export default function App() {
         return;
       }
 
-      // ✅ Require a real MetaMask tx hash (prevents 400 + “Not verified”)
       if (!recordTxHash) {
         setErr("Record on-chain first (MetaMask) to generate a tx hash.");
         return;
@@ -402,10 +398,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      {/* Wider container fixes the “cramped” desktop layout */}
+      <div className="mx-auto max-w-7xl px-4 py-10">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-4xl font-bold tracking-tight text-slate-900">
               TrustPay Dashboard
             </h1>
@@ -415,7 +412,7 @@ export default function App() {
             </p>
             <p className="mt-2 text-xs text-slate-500">
               Contract:{" "}
-              <span className="font-mono">
+              <span className="font-mono break-all">
                 {CONTRACT_ADDRESS || "(missing)"}
               </span>
             </p>
@@ -433,7 +430,7 @@ export default function App() {
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
                 Wallet:{" "}
                 <span className="font-mono">{shortAddr(wallet.address)}</span>
-                <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-xs text-slate-600 whitespace-nowrap">
                   Chain {wallet.chainId}
                 </span>
               </div>
@@ -464,7 +461,7 @@ export default function App() {
           </div>
         )}
 
-        {/* App notices */}
+        {/* Notices */}
         {(err || notice) && (
           <div className="mt-6 space-y-2">
             {err && (
@@ -480,7 +477,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Logged out view */}
+        {/* Logged out */}
         {!token ? (
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -531,19 +528,17 @@ export default function App() {
                 <li>Create an invoice (business reference)</li>
                 <li>Record proof on blockchain (MetaMask → Hardhat Local)</li>
                 <li>
-                  Confirm payment → verify-service checks tx input → invoice becomes VERIFIED
+                  Confirm payment → verify-service checks tx input → invoice
+                  becomes VERIFIED
                 </li>
               </ul>
-              <p className="mt-3 text-xs text-slate-500">
-                Don’t use Hardhat test keys on real networks.
-              </p>
             </div>
           </div>
         ) : (
-          /* Logged in view */
-          <div className="mt-8 grid gap-6 lg:grid-cols-3">
-            {/* Left column */}
-            <div className="space-y-6 lg:col-span-1">
+          /* Logged in */
+          <div className="mt-8 grid gap-6 lg:grid-cols-12">
+            {/* Left column: wider than before so buttons don’t look “squeezed” */}
+            <div className="space-y-6 lg:col-span-4 min-w-0">
               {/* Account */}
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -559,13 +554,17 @@ export default function App() {
                 </div>
 
                 <div className="mt-4 text-sm text-slate-700">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-4">
                     <span className="text-slate-500">Name</span>
-                    <span className="font-medium">{me?.full_name || "..."}</span>
+                    <span className="font-medium truncate">
+                      {me?.full_name || "..."}
+                    </span>
                   </div>
-                  <div className="mt-2 flex justify-between">
+                  <div className="mt-2 flex justify-between gap-4">
                     <span className="text-slate-500">Role</span>
-                    <span className="font-medium">{me?.role || "..."}</span>
+                    <span className="font-medium truncate">
+                      {me?.role || "..."}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -598,7 +597,7 @@ export default function App() {
                   <button
                     onClick={createInvoice}
                     disabled={busy}
-                    className="mt-1 rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                    className="mt-1 w-full rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                   >
                     {busy ? "Creating..." : "Create"}
                   </button>
@@ -628,11 +627,12 @@ export default function App() {
                     />
                   </label>
 
-                  <div className="flex gap-2">
+                  {/* ✅ GRID fixes the “not arranged” buttons on desktop */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       onClick={recordOnChain}
                       disabled={busy || !confirmRef}
-                      className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60 whitespace-nowrap"
                     >
                       {busy ? "Working..." : "Record on-chain"}
                     </button>
@@ -640,7 +640,7 @@ export default function App() {
                     <button
                       onClick={confirm}
                       disabled={busy || !confirmRef || !recordTxHash}
-                      className="flex-1 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+                      className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-500 disabled:opacity-60 whitespace-nowrap"
                       title={!recordTxHash ? "Record on-chain first" : ""}
                     >
                       {busy ? "Working..." : "Confirm"}
@@ -652,7 +652,7 @@ export default function App() {
                       <div className="font-semibold uppercase tracking-wide text-blue-700">
                         MetaMask tx hash used for confirm
                       </div>
-                      <code className="mt-2 block max-h-20 overflow-auto rounded-lg bg-white/80 p-2 font-mono text-[11px] leading-relaxed text-slate-800">
+                      <code className="mt-2 block max-h-20 overflow-auto rounded-lg bg-white/80 p-2 font-mono text-[11px] leading-relaxed text-slate-800 break-all">
                         {recordTxHash}
                       </code>
                     </div>
@@ -673,7 +673,7 @@ export default function App() {
             </div>
 
             {/* Right column */}
-            <div className="space-y-6 lg:col-span-2">
+            <div className="space-y-6 lg:col-span-8 min-w-0">
               {/* Invoices */}
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -689,10 +689,11 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-                  <table className="w-full text-left text-sm">
+                {/* ✅ overflow-x-auto + min table width fixes cut-off Created At */}
+                <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="min-w-[1100px] w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs text-slate-600">
-                      <tr>
+                      <tr className="[&>th]:whitespace-nowrap">
                         <th className="px-4 py-3">Reference</th>
                         <th className="px-4 py-3">Amount</th>
                         <th className="px-4 py-3">Status</th>
@@ -712,25 +713,26 @@ export default function App() {
                             setRecordTxHash("");
                           }}
                         >
-                          <td className="px-4 py-3 font-mono text-xs">
+                          <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
                             {inv.reference}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             {inv.amount} {inv.currency}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <Badge status={inv.status} />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <RiskBadge
                               level={inv.risk_level}
                               score={inv.risk_score}
                             />
                           </td>
-                          <td className="px-4 py-3 text-xs text-slate-600">
-                            {inv.customer_name || `Customer #${inv.customer_id}`}
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                            {inv.customer_name ||
+                              `Customer #${inv.customer_id}`}
                           </td>
-                          <td className="px-4 py-3 text-xs text-slate-500">
+                          <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
                             {inv.created_at}
                           </td>
                         </tr>
@@ -750,11 +752,11 @@ export default function App() {
                 {invoice && (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-slate-400">
                           Selected invoice
                         </p>
-                        <p className="mt-1 font-mono text-sm text-slate-900">
+                        <p className="mt-1 font-mono text-sm text-slate-900 break-all">
                           {invoice.reference}
                         </p>
                       </div>
@@ -770,35 +772,27 @@ export default function App() {
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Amount</p>
-                        <p className="mt-1 text-base font-semibold text-slate-900">
+                        <p className="mt-1 text-base font-semibold text-slate-900 whitespace-nowrap">
                           {invoice.amount} {invoice.currency}
                         </p>
                       </div>
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Created</p>
-                        <p className="mt-1 text-sm font-medium text-slate-800">
+                        <p className="mt-1 text-sm font-medium text-slate-800 whitespace-nowrap">
                           {invoice.created_at}
                         </p>
                       </div>
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="text-xs text-slate-500">Customer</p>
-                        <p className="mt-1 text-sm font-medium text-slate-800">
-                          {invoice.customer_name || `Customer #${invoice.customer_id}`}
+                        <p className="mt-1 text-sm font-medium text-slate-800 truncate">
+                          {invoice.customer_name ||
+                            `Customer #${invoice.customer_id}`}
                         </p>
                       </div>
                     </div>
 
                     <div className="mt-4">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className="font-semibold text-slate-700">
-                          AI Risk
-                        </span>
-                        <RiskBadge
-                          level={selectedInvoiceRisk.level}
-                          score={selectedInvoiceRisk.score}
-                        />
-                      </div>
-                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                         <summary className="cursor-pointer text-xs font-semibold text-slate-600">
                           View full invoice JSON
                         </summary>
@@ -816,9 +810,8 @@ export default function App() {
                   Next improvement
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  You can now show VERIFIED instantly after Confirm. Later, you
-                  can store tx hash in the invoice row too (so refresh persists
-                  it).
+                  Persist the MetaMask tx hash in the invoice row so it survives
+                  refresh and can be re-verified without re-recording.
                 </p>
               </div>
             </div>
