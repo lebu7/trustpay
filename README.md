@@ -47,17 +47,17 @@ TrustPay verifies payments using blockchain proof instead of manual confirmation
 
 ## 🖥️ System Architecture Diagrams
 
-### Use Case Diagram
-![Use Case](images/usecase.png)
+### Docker Services
+![Use Case](images/docker-services.png)
 
-### Component Diagram
-![Component](images/component.png)
+### Metamask Confirmation
+![Component](images/metamask-confirm.png)
 
-### Sequence Flow
-![Sequence](images/sequence.png)
+### Metamask TX details
+![Sequence](images/metamask-confirmation.png)
 
-### Deployment Diagram
-![Deployment](images/deployment.png)
+### Invoice details
+![Deployment](images/selected-invoice.png)
 
 ---
 
@@ -75,5 +75,5 @@ TrustPay verifies payments using blockchain proof instead of manual confirmation
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/trustpay.git
+git clone https://github.com/lebu7/trustpay.git
 cd trustpay
