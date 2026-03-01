@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 /**
- * ✅ Minimal ABI (no hardhat artifacts needed)
+ * Minimal ABI (no hardhat artifacts needed)
  * Must match your PaymentProof.sol
  */
 const abi = [

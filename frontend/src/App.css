@@ -6,5 +6,5 @@ body,
 
 body {
   margin: 0;
-  overflow-x: visible; /* important: don't force-hide horizontal scroll */
+  overflow-x: visible;
 }

@@ -105,7 +105,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // ✅ Delete invoice modal state
+  // Delete invoice modal state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -239,7 +239,7 @@ export default function App() {
     setErr("");
     setNotice("");
     setConfirmResult(null);
-    setRecordTxHash(""); // reset
+    setRecordTxHash("");
     setBusy(true);
 
     try {
@@ -385,7 +385,7 @@ export default function App() {
     }
   }
 
-  // ✅ DELETE invoice (PENDING/FAILED only)
+  // DELETE invoice (PENDING/FAILED only)
   async function deleteInvoice(inv) {
     if (!inv?.id) return;
 
@@ -432,7 +432,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ✅ max-w-7xl + grid fixes desktop spacing */}
       <div className="mx-auto max-w-7xl px-4 py-10">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -662,7 +661,7 @@ export default function App() {
                     />
                   </label>
 
-                  {/* ✅ Always arranged: grid + full width buttons */}
+                  {/* Always arranged: grid + full width buttons */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       onClick={recordOnChain}
@@ -724,7 +723,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* ✅ table scrolls instead of cutting off Created */}
+                {/* Table scrolls instead of cutting off Created */}
                 <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
                   <table className="min-w-[1250px] w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs text-slate-600">
@@ -877,7 +876,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ✅ Delete confirmation modal */}
+        {/* Delete confirmation modal */}
         {deleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">

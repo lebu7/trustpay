@@ -14,7 +14,7 @@ export async function requireAuth(req, res, next) {
   try {
     const resp = await fetch(`${base}/auth/me`, {
       headers: {
-        // ✅ re-add Bearer (standardized)
+        // re-add Bearer (standardized)
         Authorization: `Bearer ${token}`,
       },
     });
